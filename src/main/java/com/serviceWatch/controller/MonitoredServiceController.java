@@ -2,6 +2,7 @@ package com.serviceWatch.controller;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.serviceWatch.Entity.MonitoredService;
@@ -17,7 +18,8 @@ public class MonitoredServiceController {
             MonitoredServiceService service) {
         this.service = service;
     }
-
+    
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEAD')")
     @PostMapping
     public MonitoredService createService(
             @RequestBody MonitoredService service) {
@@ -36,7 +38,8 @@ public class MonitoredServiceController {
 
         return service.getServiceById(id);
     }
-
+    
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEAD')")
     @PutMapping("/{id}")
     public MonitoredService updateService(
             @PathVariable Long id,
@@ -44,7 +47,8 @@ public class MonitoredServiceController {
 
         return service.updateService(id, updatedService);
     }
-
+    
+    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEAD')")
     @DeleteMapping("/{id}")
     public String deleteService(@PathVariable Long id) {
 

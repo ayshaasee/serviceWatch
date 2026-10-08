@@ -60,7 +60,7 @@ public class ServiceHealthCheckService {
                     .uri(service.getHealthCheckUrl())
                     .retrieve()
                     .toBodilessEntity();
-            
+
             long responseTime =
                     Duration.between(start, Instant.now())
                             .toMillis();
@@ -83,7 +83,7 @@ public class ServiceHealthCheckService {
                     .anyMatch(incident ->
                             incident.getSeverity() == IncidentSeverity.HIGH
                     );
-            
+
             System.out.println(
                     "DEBUG → "
                     + service.getName()
@@ -129,9 +129,18 @@ public class ServiceHealthCheckService {
                     service.getName()
                     + " → DOWN"
             );
+
+            System.out.println(
+                    "Health check failed: "
+                    + e.getClass().getName()
+                    + " - "
+                    + e.getMessage()
+            );
+
+            e.printStackTrace();
+
             service.setLastChecked(LocalDateTime.now());
             service.setResponseTime(null);
-            service.setStatus(ServiceHealth.DOWN);
         }
 
         serviceRepository.save(service);

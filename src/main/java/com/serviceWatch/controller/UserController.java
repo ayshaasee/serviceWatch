@@ -21,20 +21,24 @@ public class UserController {
         this.userService = userService;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public UserResponseDTO createUser(@Valid @RequestBody UserRequestDTO request) {
         return userService.createUser(request);
     }
-    
+
     @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEAD')")
     @GetMapping
     public List<UserResponseDTO> getAllUsers() {
         return userService.getAllUsers();
     }
+
     @GetMapping("/{id}")
     public UserResponseDTO getUserById(@PathVariable Long id) {
         return userService.getUserById(id);
     }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public UserResponseDTO updateUser(
             @PathVariable Long id,
@@ -42,6 +46,8 @@ public class UserController {
 
         return userService.updateUser(id, request);
     }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public String deleteUser(@PathVariable Long id) {
 
