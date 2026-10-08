@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -23,13 +24,16 @@ public class ServiceHealthCheckService {
 	private final MonitoredServiceRepository serviceRepository;
 	private final IncidentRepository incidentRepository;
 	private final RestClient restClient;
+	private final StringRedisTemplate redisTemplate;
 
 	public ServiceHealthCheckService(
 	        MonitoredServiceRepository serviceRepository,
-	        IncidentRepository incidentRepository) {
+	        IncidentRepository incidentRepository,
+	        StringRedisTemplate redisTemplate) {
 
 	    this.serviceRepository = serviceRepository;
 	    this.incidentRepository = incidentRepository;
+	    this.redisTemplate = redisTemplate;
 	    this.restClient = RestClient.create();
 	}
 
@@ -144,6 +148,8 @@ public class ServiceHealthCheckService {
         }
 
         serviceRepository.save(service);
+
+        redisTemplate.delete("services:all");
     }
     @Scheduled(fixedRate = 30000)
     public void scheduledHealthCheck() {
