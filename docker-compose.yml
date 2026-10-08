@@ -16,6 +16,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
   backend:
     build: .
@@ -23,7 +29,8 @@ services:
     restart: unless-stopped
 
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
     environment:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
