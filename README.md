@@ -4,7 +4,7 @@
 
 ServiceWatch is a backend-focused incident and service reliability platform designed to help engineering teams monitor services, manage incidents, track incident lifecycles, and handle escalations.
 
-The project is built as a modular monolith using Spring Boot and PostgreSQL, with a separate payment-service component prepared for future service-oriented architecture.
+The core application follows a modular monolith architecture built with Spring Boot and PostgreSQL. Redis is used for caching, while Apache Kafka provides event-driven communication for incident events. A separate payment-service component is included as an independent Spring Boot service.
 
 ---
 
@@ -21,6 +21,8 @@ ServiceWatch provides a centralized platform for engineering teams to:
 - Monitor service health
 - Manage users and roles
 - Send and manage notifications
+- Cache frequently accessed service data using Redis
+- Publish and consume incident events using Apache Kafka
 - Secure APIs using JWT authentication
 - Control access using role-based authorization
 
@@ -79,18 +81,19 @@ ACKNOWLEDGED
   ↓
 INVESTIGATING
   ↓
-RESOLVEDIncidents can also be escalated:
+RESOLVED
+
+Incidents can also be escalated:
 OPEN ─────────────→ ESCALATED
 ACKNOWLEDGED ─────→ ESCALATED
 INVESTIGATING ────→ ESCALATED
 
-An escalated incident can then be resolved:
-ESCALATED → RESOLVED
+ESCALATED ────────→ RESOLVED
 
 Invalid status transitions are rejected by the application.
 Automatic Escalation
 Critical incidents can have an escalation deadline.
-A scheduled background process checks for incidents whose escalation deadline has passed and automatically changes eligible incidents to:
+A scheduled background process checks for critical incidents whose escalation deadline has passed and automatically changes eligible incidents to:
 ESCALATED
 
 The assigned engineer can also receive an escalation notification.
@@ -103,19 +106,44 @@ ServiceWatch records important incident events such as:
 - Resolution
 - Incident updates
 This provides an audit-style timeline for incidents.
-Service Health
-Services can have one of three health states:
+Service Health Monitoring
+Monitored services can have one of three health states:
 - HEALTHY
 - DEGRADED
 - DOWN
-Service health considers active incidents and configured health-check endpoints.
+Service health is determined using configured health-check endpoints and active incident conditions.
+Automated background health checks periodically evaluate monitored services and record health information such as:
+- Health status
+- Response time
+- Last health check time
 Notifications
 The platform supports notifications for important incident events such as:
 - Incident creation
 - Assignment
 - Status changes
 - Escalation
-Notifications can be viewed through the notification API.
+Notifications can be retrieved and marked as read through the notification API.
+Redis Caching
+Redis is used to cache frequently accessed monitored service data.
+The service cache is invalidated when monitored services are created, updated, deleted, or when service health information changes.
+Kafka Event Streaming
+Apache Kafka is used for event-driven incident processing.
+When an incident is created, ServiceWatch publishes an event to the:
+incident-events
+
+Kafka topic.
+A Kafka consumer listens to the topic and processes incoming incident events.
+The current flow is:
+IncidentService
+      ↓
+KafkaProducerService
+      ↓
+Kafka Topic
+incident-events
+      ↓
+KafkaConsumerService
+
+The Kafka integration has been tested using real incident creation and message consumption.
 Validation & Exception Handling
 The backend uses centralized exception handling for common API errors.
 Examples include:
@@ -139,47 +167,66 @@ Backend
 - Maven
 Database
 - PostgreSQL
+- H2 for test database configuration
+Caching
+- Redis
+- Spring Data Redis
+Messaging
+- Apache Kafka
+- Spring Kafka
 Testing
 - JUnit
 - Mockito
 - Spring Boot Test
-- H2 for test database configuration
+- H2
 DevOps & Containerization
 - Docker
 - Docker Compose
 - Git
 - GitHub
 Additional Component
-- payment-service — separate Spring Boot service prepared for future service-oriented architecture
+- payment-service — separate Spring Boot service included as a foundation for future service-oriented architecture
 System Architecture
-The current architecture follows a modular monolith approach:
-                    Client
-                      │
-                      ▼
-              REST API / Controllers
-                      │
-                      ▼
-                Service Layer
-                      │
-          ┌───────────┼───────────┐
-          ▼           ▼           ▼
-       Incident      User       Service
-       Management   Management   Health
-          │           │           │
-          └───────────┼───────────┘
-                      ▼
-                 JPA / Hibernate
-                      │
-                      ▼
-                  PostgreSQL
+The core application follows a modular monolith architecture.
+                         Client
+                           │
+                           ▼
+                  REST API / Controllers
+                           │
+                           ▼
+                      Service Layer
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+      Incidents          Users           Services
+      Management       Management      Health Checks
+          │                                 │
+          │                                 ▼
+          │                            Redis Cache
+          │
+          ▼
+     PostgreSQL
+          │
+          ▼
+   Incident Events
+          │
+          ▼
+   Kafka Producer
+          │
+          ▼
+  incident-events Topic
+          │
+          ▼
+   Kafka Consumer
 
 Security is applied through Spring Security and JWT authentication.
-A separate payment-service application is also included as a foundation for future service-oriented architecture.
+Redis provides caching for monitored service data, while Kafka provides event-driven communication for incident events.
+A separate payment-service Spring Boot application is also included as an independent service component.
 User Roles
 Role	Permissions
-ADMIN	Full incident and user management
-TEAM_LEAD	Incident management, assignment and team operations
-ENGINEER	View, create and update incidents
+ADMIN	Full incident, service, and user management
+TEAM_LEAD	Incident management, assignment, and team operations
+ENGINEER	View, create, and update incidents
 VIEWER	Read-only access
 
 
@@ -212,19 +259,20 @@ PUT    /api/services/{id}
 DELETE /api/services/{id}
 
 Notifications
-GET /api/notifications
+GET   /api/notifications
+PATCH /api/notifications/{id}/read
+PATCH /api/notifications/read-all
 
 Additional endpoints are available for incident comments and incident events.
 Database
 The application uses PostgreSQL with JPA/Hibernate.
 Important entities include:
-User
-Incident
-MonitoredService
-IncidentEvent
-IncidentComment
-Notification
-
+- User
+- Incident
+- MonitoredService
+- IncidentEvent
+- IncidentComment
+- Notification
 Indexes are used for frequently queried incident and notification data, including:
 - Incident escalation queries
 - Incident service lookup
@@ -232,19 +280,26 @@ Indexes are used for frequently queried incident and notification data, includin
 Testing
 The backend includes unit and application-context tests.
 The test environment uses an in-memory H2 database so that tests do not depend on the local PostgreSQL database.
-Current test coverage includes areas such as:
+Current tests cover areas such as:
 - Incident creation
 - Incident status transitions
 - Invalid status transitions
 - Incident escalation
-- Application context loadingRunning Locally
+- Application context loading
+The current test suite passes successfully:
+Tests run: 6
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+
+Running Locally
 Prerequisites
 Make sure the following are installed:
 - Java 21
 - Maven or Maven Wrapper
 - PostgreSQL
 - Git
-- Docker (optional)
+- Docker
 1. Clone the repository
 git clone https://github.com/ayshaasee/serviceWatch.git
 cd serviceWatch
@@ -261,7 +316,7 @@ Create the database:
 serviceWatch
 
 Then make sure the PostgreSQL username and environment configuration match your local setup.
-4. Run the application
+4. Run with Maven
 Windows:
 mvnw.cmd spring-boot:run
 
@@ -273,13 +328,14 @@ The project includes:
 Dockerfile
 docker-compose.yml
 
-Docker support is included as part of the project's containerization setup.
+Docker Compose is used to run the backend and supporting infrastructure, including:
+- PostgreSQL
+- Redis
+- Kafka
+- payment-service
 Future Enhancements
-The following technologies and capabilities are planned for future iterations:
+The following capabilities are planned for future iterations:
 - React frontend integration
-- Apache Kafka for event-driven communication
-- Redis for caching
-- Docker-based deployment improvements
 - GitHub Actions CI/CD
 - AWS deployment
 - Centralized logging
@@ -296,11 +352,11 @@ ServiceWatch is being developed as a practical software engineering project to d
 - Authentication and authorization
 - Database design
 - Incident management
-- Event-driven architecture concepts
+- Event-driven architecture
+- Caching
 - Testing
 - Containerization
-- CI/CD
-- Cloud deployment
+- Distributed system concepts
 Author
 Ayshath Asheeba
 Computer Science & Engineering
