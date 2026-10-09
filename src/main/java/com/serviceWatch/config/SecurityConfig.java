@@ -68,7 +68,6 @@ public class SecurityConfig {
 
                 // Authentication
                 .requestMatchers("/api/auth/**").permitAll()
-
                 // Everything else requires login
                 .anyRequest().authenticated()
             )

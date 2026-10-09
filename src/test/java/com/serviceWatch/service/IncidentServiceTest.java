@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -32,6 +33,9 @@ import com.serviceWatch.enums.IncidentStatus;
 import com.serviceWatch.exception.InvalidIncidentStatusException;
 
 class IncidentServiceTest {
+	
+	@Mock
+	private KafkaProducerService kafkaProducerService;
 
     private IncidentRepository incidentRepository;
     private UserRepository userRepository;
@@ -43,7 +47,7 @@ class IncidentServiceTest {
 
     @BeforeEach
     void setUp() {
-
+    	
         incidentRepository = mock(IncidentRepository.class);
         userRepository = mock(UserRepository.class);
         incidentEventService = mock(IncidentEventService.class);
@@ -55,7 +59,8 @@ class IncidentServiceTest {
                 userRepository,
                 incidentEventService,
                 notificationService,
-                monitoredServiceRepository
+                monitoredServiceRepository,
+                kafkaProducerService
         );
 
         User user = new User(

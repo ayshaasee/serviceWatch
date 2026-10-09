@@ -37,6 +37,7 @@ public class IncidentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final MonitoredServiceRepository monitoredServiceRepository;
+    private final KafkaProducerService kafkaProducerService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -45,13 +46,15 @@ public class IncidentService {
             UserRepository userRepository,
             IncidentEventService incidentEventService,
             NotificationService notificationService,
-            MonitoredServiceRepository monitoredServiceRepository) {
+            MonitoredServiceRepository monitoredServiceRepository,
+            KafkaProducerService kafkaProducerService) {
 
         this.incidentRepository = incidentRepository;
         this.userRepository = userRepository;
         this.incidentEventService = incidentEventService;
         this.notificationService = notificationService;
         this.monitoredServiceRepository = monitoredServiceRepository;
+        this.kafkaProducerService = kafkaProducerService;
     }
 
     public IncidentResponseDTO createIncident(Incident incident) {
@@ -96,6 +99,11 @@ public class IncidentService {
                 savedIncident.getId(),
                 savedIncident.getTitle(),
                 savedIncident.getSeverity()
+        );
+        kafkaProducerService.publishIncidentEvent(
+                "Incident created: id=" + savedIncident.getId()
+                        + ", title=" + savedIncident.getTitle()
+                        + ", severity=" + savedIncident.getSeverity()
         );
 
         // Recalculate service health
